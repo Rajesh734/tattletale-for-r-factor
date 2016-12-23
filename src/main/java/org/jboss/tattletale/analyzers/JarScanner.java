@@ -156,8 +156,9 @@ public class JarScanner extends AbstractScanner
                 
              
             
-            }
-            else if (entryName.contains("META-INF") && entryName.endsWith(".SF"))
+            } else if(entryName.contains("ibm") && entryName.endsWith(".xml")) {
+            	otherInformation.put("SERVER", "WAS");
+            } else if (entryName.contains("META-INF") && entryName.endsWith(".SF"))
             {
                 InputStream is = null;
                 try	{

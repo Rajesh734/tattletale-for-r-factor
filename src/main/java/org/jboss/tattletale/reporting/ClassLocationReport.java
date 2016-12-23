@@ -21,17 +21,26 @@
  */
 package org.jboss.tattletale.reporting;
 
+import static org.jboss.tattletale.utils.TattleTaleConstants.TECHNOLOGY;
+
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import org.apache.commons.dbcp2.BasicDataSource;
 import org.jboss.tattletale.Main;
 import org.jboss.tattletale.utils.TattleTaleConstants;
+import org.jboss.tattletale.utils.TattleTaleDataSource;
 
 /**
  * Class location report
@@ -81,7 +90,7 @@ public class ClassLocationReport extends AbstractReport
       bw.write("     <th>Class</th>" + Dump.newLine());
       bw.write("     <th>Jar files</th>" + Dump.newLine());
       bw.write("  </tr>" + Dump.newLine());
-
+      Set<String> technologiesUsed = new TreeSet<String>();
       boolean odd = true;
       Set<String> dependentJars = new TreeSet<String>();
       for (Map.Entry<String, SortedSet<String>> entry : gProvides.entrySet())
@@ -125,6 +134,41 @@ public class ClassLocationReport extends AbstractReport
 
             bw.write("<a href=\"../" + extension + "/" + archive + ".html\">" + archive + "</a>" + Dump.newLine());
             dependentJars.add(archive);
+            Pattern pattern = Pattern.compile("(.*)-(\\d)*(\\.\\d)*(\\.)*([a-zA-Z])*(\\.jar)*$");
+            Matcher matcher = pattern.matcher(archive);
+            String jarNameOnly = "";
+            if(matcher.find()) {
+            	jarNameOnly= matcher.group(1);
+            }
+            try {
+          	  BasicDataSource dataSource = TattleTaleDataSource.getDataSource();
+          	  try (Connection connection = dataSource.getConnection();
+        				PreparedStatement pstmt = connection.prepareStatement("SELECT tech_name "
+        						+ "FROM r_factor.tech_based_on_jar_t techjar "
+        						+ "JOIN r_factor.technology_t tech on tech.id = techjar.tech_id "
+        						+ "WHERE ? LIKE CONCAT(CONCAT('%',dep_jar_names),'%') ;");
+            		 )
+        		{
+          		  pstmt.setString(1, jarNameOnly);
+          		try (ResultSet resultSet = pstmt.executeQuery();)
+    			{
+    				
+    				while (resultSet.next())
+    				{
+    					//System.out.println(dep);
+    					technologiesUsed.add(resultSet.getString(1));
+    					//System.out.println(resultSet.getInt(1) + "," + resultSet.getString(2) );
+    				}
+    			}
+    			catch (Exception e)
+    			{
+    				connection.rollback();
+    				e.printStackTrace();
+    			}
+        		}
+            } catch (Exception e) {
+          	  
+            }
             if (sit.hasNext())
             {
                bw.write(", ");
@@ -141,6 +185,11 @@ public class ClassLocationReport extends AbstractReport
       } else {
     	  ((Set<String>)Main.otherInformation.get(TattleTaleConstants.DEPENDENT_JARS)).addAll(dependentJars);
       }
+      ((Set)Main.otherInformation.get(TECHNOLOGY)).addAll(technologiesUsed);
+      
+      
+      
+      
       bw.write("</table>" + Dump.newLine());
    }
 

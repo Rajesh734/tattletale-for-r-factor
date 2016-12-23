@@ -31,6 +31,7 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -95,6 +96,7 @@ import org.jboss.tattletale.reporting.TransitiveDependsOnReport;
 import org.jboss.tattletale.reporting.UnusedJarReport;
 import org.jboss.tattletale.reporting.WarReport;
 import org.jboss.tattletale.utils.Configuration;
+import org.jboss.tattletale.utils.TattleTaleConstants;
 import org.jboss.tattletale.utils.TattleTaleDataSource;
 
 /**
@@ -1109,14 +1111,61 @@ public class Main
             main.setDeleteOutputDirectory(true);
             BasicDataSource dataSource = TattleTaleDataSource.getDataSource();
             try ( Connection connection = dataSource.getConnection();
-      			PreparedStatement truncateDepClasses = connection.prepareStatement("Truncate table r_factor.dep_class_t");
-          		PreparedStatement truncateDepJars = connection.prepareStatement("Truncate table R_FACTOR.DEP_jar_T "))
+            		PreparedStatement truncateDepClasses = connection.prepareStatement("Truncate table r_factor.dep_class_t");
+            		PreparedStatement truncateDepJars = connection.prepareStatement("Truncate table R_FACTOR.DEP_jar_T ");
+            		PreparedStatement truncateTechOverview = connection.prepareStatement("Truncate table R_FACTOR.tech_overview_t ");
+          			PreparedStatement truncateRFactorResult = connection.prepareStatement("Truncate table r_factor.r_factor_t"))
       		{
             	truncateDepClasses.execute();
             	truncateDepJars.execute();
+            	truncateTechOverview.execute();
+            	truncateRFactorResult.execute();
       		}
             main.execute();
+            String jdkVersion = getJDKVersion();
+            System.out.println(jdkVersion);
+             
             System.out.println(otherInformation);
+           
+            try (Connection connection = dataSource.getConnection();
+      				PreparedStatement pstmt = connection.prepareStatement("INSERT INTO R_FACTOR.tech_overview_t (Technology, Server) "
+      						+ "VALUES "
+      						+ "(?,?)");
+            		PreparedStatement pstmtForTechnologyView = connection.prepareStatement("Select tech_name, complexity FROM R_FACTOR.technology_t Where "
+      						+ "tech_name = ? ");
+            		PreparedStatement pstmtForRfactorInsert = connection.prepareStatement("INSERT INTO R_FACTOR.r_factor_t (Tech_API,Complexity, R_FACTOR) "
+      						+ "VALUES"
+            				+ "(?, ?, ?)");
+          		  )
+      		{
+            	pstmt.setString(1, jdkVersion + ", " + otherInformation.get(TECHNOLOGY).toString());
+            	if(null != otherInformation.get("SERVER")) {
+            		pstmt.setString(2, otherInformation.get("SERVER").toString());	
+            	} else {
+            		pstmt.setString(2, null);	
+            	}
+            	pstmt.execute();
+            	for(String technology :(Set<String>)otherInformation.get(TECHNOLOGY)){
+            		pstmtForTechnologyView.setString(1, technology);
+            		
+            		try (ResultSet resultSet = pstmtForTechnologyView.executeQuery();)
+        			{	
+        				while (resultSet.next())
+        				{
+        					pstmtForRfactorInsert.setString(1, resultSet.getString("tech_name"));
+        					pstmtForRfactorInsert.setString(2, resultSet.getString("Complexity"));
+        					if("NA".equalsIgnoreCase(resultSet.getString("Complexity"))) {
+        						pstmtForRfactorInsert.setString(3, "RELOAD");
+        					} else {
+        						pstmtForRfactorInsert.setString(3, "REFACTOR");
+        					}
+        					pstmtForRfactorInsert.execute();
+        				}
+            			
+            		}
+            	}
+      		}
+            
          }
          catch (Exception e)
          {
@@ -1129,6 +1178,38 @@ public class Main
          usage();
       }
    }
+
+/**
+ * @return
+ */
+private static String getJDKVersion() {
+	int jdkVersionNumber = (int)otherInformation.get(JDK_VERSION);
+	String jdkVersion = "JDK 1.1";
+	switch (jdkVersionNumber) {
+	case TattleTaleConstants.JDK_1_2_VERSION_NUMBER:
+		jdkVersion="JDK 1.2";
+		break;
+	case TattleTaleConstants.JDK_1_3_VERSION_NUMBER:
+		jdkVersion="JDK 1.3";
+		break;
+	case TattleTaleConstants.JDK_1_4_VERSION_NUMBER:
+		jdkVersion="JDK 1.4";
+		break;
+	case TattleTaleConstants.JDK_5_VERSION_NUMBER:
+		jdkVersion="JDK 5";
+		break;
+	case TattleTaleConstants.JDK_6_VERSION_NUMBER:
+		jdkVersion="JDK 6";
+		break;
+	case TattleTaleConstants.JDK_7_VERSION_NUMBER:
+		jdkVersion="JDK 7";
+		break;
+	case TattleTaleConstants.JDK_8_VERSION_NUMBER:
+		jdkVersion="JDK 8";
+		break;
+	}
+	return jdkVersion;
+}
 
 
    /**
