@@ -25,8 +25,13 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
+import java.util.TreeSet;
+
+import org.jboss.tattletale.Main;
+import org.jboss.tattletale.utils.TattleTaleConstants;
 
 /**
  * Class location report
@@ -78,7 +83,7 @@ public class ClassLocationReport extends AbstractReport
       bw.write("  </tr>" + Dump.newLine());
 
       boolean odd = true;
-
+      Set<String> dependentJars = new TreeSet<String>();
       for (Map.Entry<String, SortedSet<String>> entry : gProvides.entrySet())
       {
          String clz = (String) ((Map.Entry) entry).getKey();
@@ -119,7 +124,7 @@ public class ClassLocationReport extends AbstractReport
             String extension = archive.substring(finalDot + 1);
 
             bw.write("<a href=\"../" + extension + "/" + archive + ".html\">" + archive + "</a>" + Dump.newLine());
-
+            dependentJars.add(archive);
             if (sit.hasNext())
             {
                bw.write(", ");
@@ -131,7 +136,11 @@ public class ClassLocationReport extends AbstractReport
 
          odd = !odd;
       }
-
+      if(null == Main.otherInformation.get(TattleTaleConstants.DEPENDENT_JARS)) {
+    	  Main.otherInformation.put(TattleTaleConstants.DEPENDENT_JARS, dependentJars);
+      } else {
+    	  ((Set<String>)Main.otherInformation.get(TattleTaleConstants.DEPENDENT_JARS)).addAll(dependentJars);
+      }
       bw.write("</table>" + Dump.newLine());
    }
 

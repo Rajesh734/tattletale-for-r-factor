@@ -22,18 +22,29 @@
 
 package org.jboss.tattletale.reporting;
 
+import static org.jboss.tattletale.utils.TattleTaleConstants.TECHNOLOGY;
+
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import org.apache.commons.dbcp2.BasicDataSource;
+import org.apache.commons.lang3.StringUtils;
+import org.jboss.tattletale.Main;
 import org.jboss.tattletale.core.Archive;
 import org.jboss.tattletale.core.NestableArchive;
+import org.jboss.tattletale.utils.TattleTaleConstants;
+import org.jboss.tattletale.utils.TattleTaleDataSource;
 
 /**
  * Class level Depends On report
@@ -64,6 +75,7 @@ public class ClassDependsOnReport extends CLSReport
     */
    public void writeHtmlBodyContent(BufferedWriter bw) throws IOException
    {
+	   Set<String> technologiesUsed = new TreeSet<String>();
       bw.write("<table>" + Dump.newLine());
 
       bw.write("  <tr>" + Dump.newLine());
@@ -107,46 +119,83 @@ public class ClassDependsOnReport extends CLSReport
        * Map the technology result to a HashMap to present that as a result. 
        * Using the above Map, calculate the score for each technology and present the complexity report.
        */
-      while (rit.hasNext())
-      {
-         Map.Entry<String, SortedSet<String>> entry = rit.next();
-         String clz = entry.getKey();
-         SortedSet<String> deps = entry.getValue();
-         if(clz.contains("com.lmig") || clz.contains("com.lib")) {
-        	 System.out.println(clz);
-         } else {
-        	continue;
-         }
-         if (odd)
-         {
-            bw.write("  <tr class=\"rowodd\">" + Dump.newLine());
-         }
-         else
-         {
-            bw.write("  <tr class=\"roweven\">" + Dump.newLine());
-         }
-         bw.write("     <td>" + clz + "</a></td>" + Dump.newLine());
-         bw.write("     <td>");
-         bw.write("<pre>");
+      try {
+    	  BasicDataSource dataSource = TattleTaleDataSource.getDataSource();
+      try (Connection connection = dataSource.getConnection();
+				PreparedStatement pstmt = connection.prepareStatement("Select tech.* from "
+						+ "r_factor.technology_t tech join r_factor.api a on a.tech_id=tech.id "
+						+ "where a.api LIKE ?");
+    		  PreparedStatement insertDepClassesStmt = connection.prepareStatement("INSERT INTO R_FACTOR.DEP_CLASS_T (class_name, dependent_classes) "
+						+ "VALUES (?, ?) "))
+		{
+    	  while (rit.hasNext())
+          {
+             Map.Entry<String, SortedSet<String>> entry = rit.next();
+             String clz = entry.getKey();
+             SortedSet<String> deps = entry.getValue();
+             //System.out.println(clz);
+             //TODO parse only give package
+             if(clz.contains("com.lmig") || clz.contains("com.lib")) {
+            	 //System.out.println(clz);
+             } else {
+            	continue;
+             }
+             if (odd)
+             {
+                bw.write("  <tr class=\"rowodd\">" + Dump.newLine());
+             }
+             else
+             {
+                bw.write("  <tr class=\"roweven\">" + Dump.newLine());
+             }
+             bw.write("     <td>" + clz + "</a></td>" + Dump.newLine());
+             bw.write("     <td>");
+             bw.write("<pre>");
 
-         Iterator<String> sit = deps.iterator();
-         while (sit.hasNext())
-         {
-            String dep = sit.next();
-            bw.write(dep);
+             Iterator<String> sit = deps.iterator();
+             while (sit.hasNext())
+             {
+                String dep = sit.next();
+                bw.write(dep);
+                pstmt.setString(1, dep.substring(0,dep.lastIndexOf(".")) +"%");
+    			try (ResultSet resultSet = pstmt.executeQuery();)
+    			{
+    				
+    				while (resultSet.next())
+    				{
+    					//System.out.println(dep);
+    					technologiesUsed.add(resultSet.getString(2));
+    					//System.out.println(resultSet.getInt(1) + "," + resultSet.getString(2) );
+    				}
+    			}
+    			catch (Exception e)
+    			{
+    				connection.rollback();
+    				e.printStackTrace();
+    			}
 
-            if (sit.hasNext())
-            {
-               bw.write("\n");
-            }
-         }
-         bw.write("</pre>");
-         bw.write("</td>" + Dump.newLine());
-         bw.write("  </tr>" + Dump.newLine());
+                if (sit.hasNext())
+                {
+                   bw.write("\n");
+                }
+             }
+             
+             insertDepClassesStmt.setString(1, clz);
+             insertDepClassesStmt.setString(2, StringUtils.join(deps, ','));
+             insertDepClassesStmt.execute();
+             bw.write("</pre>");
+             bw.write("</td>" + Dump.newLine());
+             bw.write("  </tr>" + Dump.newLine());
 
-         odd = !odd;
+             odd = !odd;
+          }
+    	  
+		}
+      } catch (Exception e) {
+    	  e.printStackTrace();
+    	  System.exit(1);
       }
-
+      ((Set)Main.otherInformation.get(TECHNOLOGY)).addAll(technologiesUsed);
       bw.write("</table>" + Dump.newLine());
    }
 

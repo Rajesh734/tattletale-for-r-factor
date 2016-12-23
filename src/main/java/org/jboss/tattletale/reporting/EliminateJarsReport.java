@@ -23,14 +23,18 @@ package org.jboss.tattletale.reporting;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.Iterator;
 import java.util.List;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import org.apache.commons.dbcp2.BasicDataSource;
 import org.jboss.tattletale.core.Archive;
 import org.jboss.tattletale.core.Location;
 import org.jboss.tattletale.core.NestableArchive;
+import org.jboss.tattletale.utils.TattleTaleDataSource;
 
 /**
  * Eliminate JAR files with multiple versions
@@ -124,7 +128,6 @@ public class EliminateJarsReport extends AbstractReport
             while (lit.hasNext())
             {
                location = lit.next();
-
                bw.write("      <tr>" + Dump.newLine());
 
                bw.write("        <td>" + location.getFileName() + "</td>" + Dump.newLine());
@@ -136,14 +139,34 @@ public class EliminateJarsReport extends AbstractReport
                {
                   bw.write("        <td style=\"text-decoration: line-through;\">");
                }
-               if (location.getVersion() != null)
-               {
-                  bw.write(location.getVersion());
+               try {BasicDataSource dataSource = TattleTaleDataSource.getDataSource();
+            	      try (Connection connection = dataSource.getConnection();
+            					PreparedStatement pstmt = connection.prepareStatement("Select tech.* from "
+            							+ "r_factor.technology_t tech join r_factor.api a on a.tech_id=tech.id "
+            							+ "where a.api = ?");
+            	    		  PreparedStatement insertDepJarStmt = connection.prepareStatement("INSERT INTO R_FACTOR.DEP_JAR_T (jar_name, version) "
+            							+ "VALUES (?, ?) "))
+            			{
+            	    	  insertDepJarStmt.setString(1, location.getFileName());
+                          if (location.getVersion() != null)
+                          {
+                        	  insertDepJarStmt.setString(2, location.getVersion());
+                             bw.write(location.getVersion());
+                          }
+                          else
+                          {
+                        	  insertDepJarStmt.setString(2, "Not available");
+                             bw.write("<i>Not listed</i>");
+                          }
+                          insertDepJarStmt.execute();
+            			}
+               }catch(Exception e) {
+            	   e.printStackTrace();
+            	   System.exit(1);
                }
-               else
-               {
-                  bw.write("<i>Not listed</i>");
-               }
+              
+               
+               
                bw.write("</td>" + Dump.newLine());
 
                bw.write("      </tr>" + Dump.newLine());

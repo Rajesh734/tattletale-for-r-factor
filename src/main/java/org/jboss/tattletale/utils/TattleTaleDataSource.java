@@ -21,18 +21,20 @@ public class TattleTaleDataSource {
 
 	private static BasicDataSource dataSource;
 
-	private static BasicDataSource getDataSource() {
+	public static BasicDataSource getDataSource() {
 
 		if (dataSource == null) {
 			BasicDataSource ds = new BasicDataSource();
 			ds.setUrl("jdbc:mysql://localhost/R_FACTOR?autoReconnect=true&useSSL=false");
 			ds.setUsername("root");
 			ds.setPassword("password");
-
+			ds.setInitialSize(10);
 			ds.setMinIdle(5);
-			ds.setMaxIdle(10);
+			ds.setMaxIdle(100);
 			ds.setMaxOpenPreparedStatements(100);
-
+			//ds.setTestOnReturn(true);
+			ds.setDefaultQueryTimeout(30000);
+			//ds.setValidationQuery("SELECT COUNT(*) technology_t");
 			dataSource = ds;
 		}
 		return dataSource;

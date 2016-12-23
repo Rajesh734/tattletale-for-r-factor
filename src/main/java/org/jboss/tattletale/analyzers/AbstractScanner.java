@@ -181,9 +181,9 @@ public abstract class AbstractScanner implements ArchiveScanner
    {
       ClassPool classPool = new ClassPool();
       CtClass ctClz = classPool.makeClass(is);
-      List<String> techList = otherInformation.get(TattleTaleConstants.TECHNOLOGY) instanceof ArrayList<?>
-		? (ArrayList<String>) otherInformation.get(TattleTaleConstants.TECHNOLOGY) 
-		: new ArrayList<String>();
+      Set<String> techSet = otherInformation.get(TattleTaleConstants.TECHNOLOGY) instanceof Set<?>
+		? (Set<String>) otherInformation.get(TattleTaleConstants.TECHNOLOGY) 
+		: new TreeSet<String>();
 
       if (classVersion == null)
       {
@@ -210,10 +210,10 @@ public abstract class AbstractScanner implements ArchiveScanner
       {
          pkg = ctClz.getName().substring(0, pkgIdx);
       }
-      if((Integer)otherInformation.get(JDK_VERSION) > ctClz.getClassFile().getMajorVersion()) {
+      if((Integer)otherInformation.get(JDK_VERSION) < ctClz.getClassFile().getMajorVersion()) {
     	  otherInformation.put(JDK_VERSION, ctClz.getClassFile().getMajorVersion());
       }
-System.out.println(ctClz.getClassFile().getMajorVersion());
+      
       Collection c = ctClz.getRefClasses();
       Iterator it = c.iterator();
 

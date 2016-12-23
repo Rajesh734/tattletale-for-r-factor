@@ -86,9 +86,9 @@ public class WarScanner extends AbstractScanner
       ArchiveScanner jarScanner = new JarScanner();
       JarFile warFile = null;
       String fileName = war.getName();
-      List<String> techList = otherInformation.get(TattleTaleConstants.TECHNOLOGY) instanceof ArrayList<?>
-		? (ArrayList<String>) otherInformation.get(TattleTaleConstants.TECHNOLOGY) 
-		: new ArrayList<String>();
+      Set<String> techSet = otherInformation.get(TattleTaleConstants.TECHNOLOGY) instanceof Set<?>
+		? (Set<String>) otherInformation.get(TattleTaleConstants.TECHNOLOGY) 
+		: new TreeSet<String>();
       try
       {
          String canonicalPath = war.getCanonicalPath();
@@ -110,7 +110,7 @@ public class WarScanner extends AbstractScanner
             JarEntry warEntry = warEntries.nextElement();
             String entryName = warEntry.getName();
             InputStream entryStream = null;
-            System.out.println(entryName);
+            //System.out.println(entryName);
             if (entryName.endsWith(".class"))
             {
                try
@@ -133,48 +133,34 @@ public class WarScanner extends AbstractScanner
                }
             }
             else if(entryName.contains("META-INF") && entryName.endsWith("pom.xml")) {
-            	techList.add("Maven");
+            	techSet.add("Maven");
             }
             else if (entryName.contains("META-INF") && entryName.endsWith(".SF"))
             {
                InputStream is = null;
-               try
-               {
-                  is = warFile.getInputStream(warEntry);
+               try	{
+					is = warFile.getInputStream(warEntry);
 
-                  InputStreamReader isr = new InputStreamReader(is);
-                  LineNumberReader lnr = new LineNumberReader(isr);
+					try (InputStreamReader isr = new InputStreamReader(is);
+							LineNumberReader lnr = new LineNumberReader(isr)) {
 
-                  if (lSign == null)
-                  {
-                     lSign = new ArrayList<String>();
-                  }
+						if (lSign == null) {
+							lSign = new ArrayList<String>();
+						}
 
-                  String s = lnr.readLine();
-                  while (s != null)
-                  {
-                     lSign.add(s);
-                     s = lnr.readLine();
-                  }
-               }
+						String s = lnr.readLine();
+						while (s != null) {
+							lSign.add(s);
+							s = lnr.readLine();
+						}
+					}
+				}
                catch (Exception ie)
                {
-                  // Ignore
+            	   ie.printStackTrace();
+                   System.err.println(ie);
                }
-               finally
-               {
-                  try
-                  {
-                     if (is != null)
-                     {
-                        is.close();
-                     }
-                  }
-                  catch (IOException ioe)
-                  {
-                     // Ignore
-                  }
-               }
+               
             }
             else if (entryName.endsWith(".jar"))
             {

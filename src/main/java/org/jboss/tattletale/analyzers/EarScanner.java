@@ -22,6 +22,11 @@
 
 package org.jboss.tattletale.analyzers;
 
+import static org.jboss.tattletale.utils.TattleTaleConstants.CONTEXT_ROOTS;
+import static org.jboss.tattletale.utils.TattleTaleConstants.EJB_MODULES;
+import static org.jboss.tattletale.utils.TattleTaleConstants.JAVA_MODULES;
+import static org.jboss.tattletale.utils.TattleTaleConstants.TECHNOLOGY;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,6 +51,7 @@ import org.jboss.tattletale.core.EarArchive;
 import org.jboss.tattletale.core.Location;
 import org.jboss.tattletale.profiles.Profile;
 import org.jboss.tattletale.utils.TattleTaleConstants;
+import org.jboss.tattletale.utils.XmlUtils;
 
 /**
  * Scanner type that will be used to make scan calls on .ear files.
@@ -92,9 +98,28 @@ public class EarScanner extends AbstractScanner
       ArchiveScanner warScanner = new WarScanner();
       JarFile earFile = null;
       String fileName = ear.getName();
-		List<String> techList = otherInformation.get(TattleTaleConstants.TECHNOLOGY) instanceof ArrayList<?>
-				? (ArrayList<String>) otherInformation.get(TattleTaleConstants.TECHNOLOGY) 
-				: new ArrayList<String>();
+		Set<String> techSet = otherInformation.get(TECHNOLOGY) instanceof Set<?>
+				? (Set<String>) otherInformation.get(TECHNOLOGY) 
+				: new TreeSet<String>();
+		Set<String> contextRootSet = new TreeSet<String>();
+		Set<String> ejbModulesSet = new TreeSet<String>();
+		Set<String> javaModulesSet = new TreeSet<String>();
+		if (null == otherInformation.get(JAVA_MODULES)) {
+			otherInformation.put(JAVA_MODULES, javaModulesSet);
+		} else {
+			javaModulesSet = (Set<String>) otherInformation.get(JAVA_MODULES);
+		}
+		if (null == otherInformation.get(EJB_MODULES)) {
+			otherInformation.put(EJB_MODULES, ejbModulesSet);
+		} else {
+			ejbModulesSet = (Set<String>) otherInformation.get(EJB_MODULES);
+		}
+		if (null == otherInformation.get(CONTEXT_ROOTS)) {
+			otherInformation.put(CONTEXT_ROOTS, contextRootSet);
+		} else {
+			contextRootSet = (Set<String>) otherInformation.get(CONTEXT_ROOTS);
+		}
+				
       try
       {
          String canonicalPath = ear.getCanonicalPath();
@@ -143,93 +168,68 @@ public class EarScanner extends AbstractScanner
                 {
                    is = earFile.getInputStream(earEntry);
 
-                   InputStreamReader isr = new InputStreamReader(is);
-                   LineNumberReader lnr = new LineNumberReader(isr);
+                   try(InputStreamReader isr = new InputStreamReader(is);
+								LineNumberReader lnr = new LineNumberReader(isr)) {
 
-                   
-
-                   String s = lnr.readLine();
-                   while (s != null)
-                   {
-                      s = lnr.readLine();
-                      if(s.contains("version")) {
-                    	  for(String attribute : s.split(" ")) {
-                    		  if(attribute.contains("version")) {
-                    			  techList.add("J2EE " + attribute.split("=")[1].replace("\"", ""));
-                    			  continue;
-                    		  }
-                    	  }
-                      } else if(s.contains("<ejb>")) {
-                    	  techList.add("EJB");
-                      } else if(s.contains("<context-root>")) {
-                    	  techList.add(s.trim());
-                      }
-                   }
+							String s = lnr.readLine();
+							while (s != null) {
+								
+								if (s.contains("version")) {
+									for (String attribute : s.split(" ")) {
+										if (attribute.contains("version")) {
+											techSet.add("J2EE "
+													+ attribute.split("=")[1].replace("\"", "").replace(">", ""));
+											continue;
+										}
+									}
+								} else if (s.contains("<ejb>")) {
+									ejbModulesSet.add(XmlUtils.getTagValue(s, "ejb").trim());
+									techSet.add("EJB");
+								} else if (s.contains("<ejb>")) {
+									ejbModulesSet.add(XmlUtils.getTagValue(s, "java").trim());
+								} else if (s.contains("<context-root>")) {
+									contextRootSet.add(XmlUtils.getTagValue(s, "context-root").trim());
+								}
+								s = lnr.readLine();
+							}
+						}
                 }
                 catch (Exception ie)
                 {
-                   // Ignore
-                }
-                finally
-                {
-                   try
-                   {
-                      if (is != null)
-                      {
-                         is.close();
-                      }
-                   }
-                   catch (IOException ioe)
-                   {
-                      // Ignore
-                   }
+                	ie.printStackTrace();
+                    System.err.println(ie);
                 }
              
             }
             else if (entryName.contains("META-INF") && entryName.endsWith(".SF"))
             {
-               InputStream is = null;
-               try
-               {
-                  is = earFile.getInputStream(earEntry);
+                InputStream is = null;
+                try	{
+ 					is = earFile.getInputStream(earEntry);
 
-                  InputStreamReader isr = new InputStreamReader(is);
-                  LineNumberReader lnr = new LineNumberReader(isr);
+ 					try (InputStreamReader isr = new InputStreamReader(is);
+ 							LineNumberReader lnr = new LineNumberReader(isr)) {
 
-                  if (lSign == null)
-                  {
-                     lSign = new ArrayList<String>();
-                  }
+ 						if (lSign == null) {
+ 							lSign = new ArrayList<String>();
+ 						}
 
-                  String s = lnr.readLine();
-                  while (s != null)
-                  {
-                     lSign.add(s);
-                     s = lnr.readLine();
-                  }
-               }
-               catch (Exception ie)
-               {
-                  // Ignore
-               }
-               finally
-               {
-                  try
-                  {
-                     if (is != null)
-                     {
-                        is.close();
-                     }
-                  }
-                  catch (IOException ioe)
-                  {
-                     // Ignore
-                  }
-               }
-            }
+ 						String s = lnr.readLine();
+ 						while (s != null) {
+ 							lSign.add(s);
+ 							s = lnr.readLine();
+ 						}
+ 					}
+ 				}
+                catch (Exception ie)
+                {
+                   // Ignore
+                }
+                
+             }
             else if (entryName.endsWith(".jar"))
             {
-            	System.out.println(entryName);
+            	//System.out.println(entryName);
                File jarFile = new File(extractedDir.getCanonicalPath(), entryName);
                Archive jarArchive = jarScanner.scan(jarFile, gProvides, known, blacklisted, otherInformation);
                if (jarArchive != null)

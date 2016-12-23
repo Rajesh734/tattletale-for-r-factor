@@ -44,6 +44,8 @@ import org.jboss.tattletale.core.Archive;
 import org.jboss.tattletale.core.JarArchive;
 import org.jboss.tattletale.core.Location;
 import org.jboss.tattletale.profiles.Profile;
+import org.jboss.tattletale.utils.TattleTaleConstants;
+import org.jboss.tattletale.utils.XmlUtils;
 
 /**
  * Java archive scanner
@@ -79,6 +81,9 @@ public class JarScanner extends AbstractScanner
       Archive archive = null;
       JarFile jarFile = null;
       String fileName = file.getName();
+      Set<String> techSet = otherInformation.get(TattleTaleConstants.TECHNOLOGY) instanceof Set<?>
+		? (Set<String>) otherInformation.get(TattleTaleConstants.TECHNOLOGY) 
+		: new TreeSet<String>();
       try
       {
          String canonicalPath = file.getCanonicalPath();
@@ -118,47 +123,67 @@ public class JarScanner extends AbstractScanner
                   }
                }
             }
+            else if (entryName.endsWith(".xml")) {
+                InputStream is = null;
+                try
+					{
+						is = jarFile.getInputStream(jarEntry);
+
+						try (InputStreamReader isr = new InputStreamReader(is);
+								LineNumberReader lnr = new LineNumberReader(isr)) {
+
+							String s = lnr.readLine();
+							while (s != null) {
+								s = lnr.readLine();
+								/*
+								 * if(s.contains("dataSource")) { for(String
+								 * attribute : s.split(" ")) {
+								 * if(attribute.contains("version")) {
+								 * techList.add("J2EE " +
+								 * attribute.split("=")[1].replace("\"", ""));
+								 * continue; } } } else if(s.contains("<ejb>"))
+								 * { techList.add("EJB"); } else
+								 */if (s.contains("<dataSourceType>")) {
+									techSet.add(XmlUtils.getTagValue(s, "dataSourceType").trim());
+								}
+							}
+						}
+					}
+                catch (Exception ie)
+                {
+                   // Ignore
+                }
+                
+             
+            
+            }
             else if (entryName.contains("META-INF") && entryName.endsWith(".SF"))
             {
-               InputStream is = null;
-               try
-               {
-                  is = jarFile.getInputStream(jarEntry);
+                InputStream is = null;
+                try	{
+ 					is = jarFile.getInputStream(jarEntry);
 
-                  InputStreamReader isr = new InputStreamReader(is);
-                  LineNumberReader lnr = new LineNumberReader(isr);
+ 					try (InputStreamReader isr = new InputStreamReader(is);
+ 							LineNumberReader lnr = new LineNumberReader(isr)) {
 
-                  if (lSign == null)
-                  {
-                     lSign = new ArrayList<String>();
-                  }
+ 						if (lSign == null) {
+ 							lSign = new ArrayList<String>();
+ 						}
 
-                  String s = lnr.readLine();
-                  while (s != null)
-                  {
-                     lSign.add(s);
-                     s = lnr.readLine();
-                  }
-               }
-               catch (Exception ie)
-               {
-                  // Ignore
-               }
-               finally
-               {
-                  try
-                  {
-                     if (is != null)
-                     {
-                        is.close();
-                     }
-                  }
-                  catch (IOException ioe)
-                  {
-                     // Ignore
-                  }
-               }
-            }
+ 						String s = lnr.readLine();
+ 						while (s != null) {
+ 							lSign.add(s);
+ 							s = lnr.readLine();
+ 						}
+ 					}
+ 				}
+                catch (Exception ie)
+                {
+                  ie.printStackTrace();
+                  System.err.println(ie);
+                }
+                
+             }
          }
 
          if (provides.size() == 0)

@@ -29,6 +29,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -43,6 +45,7 @@ import java.util.StringTokenizer;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import org.apache.commons.dbcp2.BasicDataSource;
 import org.jboss.tattletale.analyzers.Analyzer;
 import org.jboss.tattletale.analyzers.ArchiveScanner;
 import org.jboss.tattletale.analyzers.DirectoryScanner;
@@ -92,6 +95,7 @@ import org.jboss.tattletale.reporting.TransitiveDependsOnReport;
 import org.jboss.tattletale.reporting.UnusedJarReport;
 import org.jboss.tattletale.reporting.WarReport;
 import org.jboss.tattletale.utils.Configuration;
+import org.jboss.tattletale.utils.TattleTaleDataSource;
 
 /**
  * Main
@@ -154,7 +158,7 @@ public class Main
    /** A List of the Constructors used to create custom reports */
    private final List<Class> customReports;
 
-
+   public static Map<String, Object> otherInformation = new HashMap<String, Object>();
    /** Constructor */
 
    public Main()
@@ -612,8 +616,8 @@ public class Main
 
          if (scanner != null)
          {
-        	 Map<String, Object> otherInformation = new HashMap<String, Object>();
-        	 otherInformation.put(TECHNOLOGY, new ArrayList<String>());
+        	 
+        	 otherInformation.put(TECHNOLOGY, new TreeSet<String>());
         	 otherInformation.put(JDK_VERSION, 45);
         	 
             Archive archive = scanner.scan(file, gProvides, known, blacklistedSet, otherInformation);
@@ -1103,8 +1107,16 @@ public class Main
             main.setFailOnWarn(false);
             main.setFailOnError(false);
             main.setDeleteOutputDirectory(true);
-
+            BasicDataSource dataSource = TattleTaleDataSource.getDataSource();
+            try ( Connection connection = dataSource.getConnection();
+      			PreparedStatement truncateDepClasses = connection.prepareStatement("Truncate table r_factor.dep_class_t");
+          		PreparedStatement truncateDepJars = connection.prepareStatement("Truncate table R_FACTOR.DEP_jar_T "))
+      		{
+            	truncateDepClasses.execute();
+            	truncateDepJars.execute();
+      		}
             main.execute();
+            System.out.println(otherInformation);
          }
          catch (Exception e)
          {

@@ -17,5 +17,9 @@ public final class TattleTaleConstants {
 	}
 	
 	public static final String TECHNOLOGY = "TECHNOLOGY";
+	public static final String DEPENDENT_JARS = "DEPENDENT_JARS";
+	public static final String CONTEXT_ROOTS = "CONTEXT_ROOTS";
+	public static final String EJB_MODULES = "EJB_MODULES";
+	public static final String JAVA_MODULES = "JAVA_MODULES";
 	public static final String JDK_VERSION = "JDK_VERSION";
 }
