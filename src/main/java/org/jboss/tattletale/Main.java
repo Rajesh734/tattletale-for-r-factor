@@ -32,6 +32,7 @@ import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -47,6 +48,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 import org.apache.commons.dbcp2.BasicDataSource;
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.tattletale.analyzers.Analyzer;
 import org.jboss.tattletale.analyzers.ArchiveScanner;
 import org.jboss.tattletale.analyzers.DirectoryScanner;
@@ -150,6 +152,8 @@ public class Main
 
    /** Scan */
    private String scan;
+   
+   public static String[] packagesToBeScanned;
 
    /** A List of the Constructors used to create dependency reports */
    private final List<Class> dependencyReports;
@@ -381,7 +385,7 @@ public class Main
       this.scan = scan;
    }
 
-   /**
+/**
     * Execute
     *
     * @throws Exception Thrown if an error occurs
@@ -1093,80 +1097,29 @@ public class Main
    {
       if (args.length > 0)
       {
-         try
-         {
+         
             int arg = 0;
             Main main = new Main();
-
-            if (args[arg].startsWith("-exclude="))
-            {
-               main.setExcludes(args[arg].substring(args[arg].indexOf("=") + 1));
-               arg++;
-            }
-            main.setSource(args[arg]);
-            main.setDestination(args.length > arg + 1 ? args[arg + 1] : ".");
-            main.setFailOnInfo(false);
-            main.setFailOnWarn(false);
-            main.setFailOnError(false);
-            main.setDeleteOutputDirectory(true);
-            BasicDataSource dataSource = TattleTaleDataSource.getDataSource();
-            try ( Connection connection = dataSource.getConnection();
-            		PreparedStatement truncateDepClasses = connection.prepareStatement("Truncate table r_factor.dep_class_t");
-            		PreparedStatement truncateDepJars = connection.prepareStatement("Truncate table R_FACTOR.DEP_jar_T ");
-            		PreparedStatement truncateTechOverview = connection.prepareStatement("Truncate table R_FACTOR.tech_overview_t ");
-          			PreparedStatement truncateRFactorResult = connection.prepareStatement("Truncate table r_factor.r_factor_t"))
-      		{
-            	truncateDepClasses.execute();
-            	truncateDepJars.execute();
-            	truncateTechOverview.execute();
-            	truncateRFactorResult.execute();
-      		}
-            main.execute();
-            String jdkVersion = getJDKVersion();
-            System.out.println(jdkVersion);
-             
-            System.out.println(otherInformation);
-           
-            try (Connection connection = dataSource.getConnection();
-      				PreparedStatement pstmt = connection.prepareStatement("INSERT INTO R_FACTOR.tech_overview_t (Technology, Server) "
-      						+ "VALUES "
-      						+ "(?,?)");
-            		PreparedStatement pstmtForTechnologyView = connection.prepareStatement("Select tech_name, complexity FROM R_FACTOR.technology_t Where "
-      						+ "tech_name = ? ");
-            		PreparedStatement pstmtForRfactorInsert = connection.prepareStatement("INSERT INTO R_FACTOR.r_factor_t (Tech_API,Complexity, R_FACTOR) "
-      						+ "VALUES"
-            				+ "(?, ?, ?)");
-          		  )
-      		{
-            	pstmt.setString(1, jdkVersion + ", " + otherInformation.get(TECHNOLOGY).toString());
-            	if(null != otherInformation.get("SERVER")) {
-            		pstmt.setString(2, otherInformation.get("SERVER").toString());	
-            	} else {
-            		pstmt.setString(2, null);	
-            	}
-            	pstmt.execute();
-            	for(String technology :(Set<String>)otherInformation.get(TECHNOLOGY)){
-            		pstmtForTechnologyView.setString(1, technology);
-            		
-            		try (ResultSet resultSet = pstmtForTechnologyView.executeQuery();)
-        			{	
-        				while (resultSet.next())
-        				{
-        					pstmtForRfactorInsert.setString(1, resultSet.getString("tech_name"));
-        					pstmtForRfactorInsert.setString(2, resultSet.getString("Complexity"));
-        					if("NA".equalsIgnoreCase(resultSet.getString("Complexity"))) {
-        						pstmtForRfactorInsert.setString(3, "RELOAD");
-        					} else {
-        						pstmtForRfactorInsert.setString(3, "REFACTOR");
-        					}
-        					pstmtForRfactorInsert.execute();
-        				}
-            			
-            		}
-            	}
-      		}
             
-         }
+            try
+			{
+            	if (args[arg].startsWith("-exclude=")) {
+            		main.setExcludes(args[arg].substring(args[arg].indexOf("=") + 1));
+            		arg++;
+            	}
+            	String sourcePath = args[arg];
+            	String destinationPath = args.length > arg + 1 ? args[arg + 1] : ".";
+            	main.setSource(sourcePath);
+            	main.setDestination(destinationPath);
+            	String packagesToBeScanned = "";
+            	if (3 == args.length) {
+            		Main.packagesToBeScanned = StringUtils.split(packagesToBeScanned, ",");
+            	} else {
+            		Main.packagesToBeScanned = new String[] { "com.lmig", "com.liberty" };
+            	}
+            	main.process(sourcePath, destinationPath, packagesToBeScanned);
+
+			}
          catch (Exception e)
          {
             System.err.println("Exception: " + e.getMessage());
@@ -1178,6 +1131,85 @@ public class Main
          usage();
       }
    }
+
+/**
+ * @param args
+ * @param arg
+ * @param main
+ * @throws SQLException
+ * @throws Exception
+ */
+public void process(String sourcePath, String destinationPath, String packagesToBeScanned) throws SQLException, Exception {
+	int arg = 0;
+	
+	setSource(sourcePath);
+	setDestination(destinationPath);
+	if (StringUtils.isNotBlank(packagesToBeScanned)) {
+		Main.packagesToBeScanned = StringUtils.split(packagesToBeScanned, ",");
+	} else {
+		Main.packagesToBeScanned = new String[] { "com.lmig", "com.liberty" };
+	}
+	setFailOnInfo(false);
+	setFailOnWarn(false);
+	setFailOnError(false);
+	setDeleteOutputDirectory(true);
+	BasicDataSource dataSource = TattleTaleDataSource.getDataSource();
+	try (Connection connection = dataSource.getConnection();
+			PreparedStatement truncateDepClasses = connection
+					.prepareStatement("Truncate table r_factor.dep_class_t");
+			PreparedStatement truncateDepJars = connection
+					.prepareStatement("Truncate table R_FACTOR.DEP_jar_T ");
+			PreparedStatement truncateTechOverview = connection
+					.prepareStatement("Truncate table R_FACTOR.tech_overview_t ");
+			PreparedStatement truncateRFactorResult = connection
+					.prepareStatement("Truncate table r_factor.r_factor_t")) {
+		truncateDepClasses.execute();
+		truncateDepJars.execute();
+		truncateTechOverview.execute();
+		truncateRFactorResult.execute();
+	}
+	execute();
+	String jdkVersion = getJDKVersion();
+	System.out.println(jdkVersion);
+
+	System.out.println(otherInformation);
+
+	try (Connection connection = dataSource.getConnection();
+			PreparedStatement pstmt = connection.prepareStatement(
+					"INSERT INTO R_FACTOR.tech_overview_t (Technology, Server) " + "VALUES " + "(?,?)");
+			PreparedStatement pstmtForTechnologyView = connection.prepareStatement(
+					"Select tech_name, complexity FROM R_FACTOR.technology_t Where " + "tech_name = ? ");
+			PreparedStatement pstmtForRfactorInsert = connection
+					.prepareStatement("INSERT INTO R_FACTOR.r_factor_t (Tech_API,Complexity, R_FACTOR) "
+							+ "VALUES" + "(?, ?, ?)");) {
+		pstmt.setString(1, jdkVersion + ", " + otherInformation.get(TECHNOLOGY).toString());
+		if (null != otherInformation.get("SERVER")) {
+			pstmt.setString(2, otherInformation.get("SERVER").toString());
+		} else {
+			pstmt.setString(2, null);
+		}
+		pstmt.execute();
+		for (String technology : (Set<String>) otherInformation.get(TECHNOLOGY)) {
+			pstmtForTechnologyView.setString(1, technology);
+
+			try (ResultSet resultSet = pstmtForTechnologyView.executeQuery();) {
+				while (resultSet.next()) {
+					pstmtForRfactorInsert.setString(1, resultSet.getString("tech_name"));
+					pstmtForRfactorInsert.setString(2, resultSet.getString("Complexity"));
+					if ("NA".equalsIgnoreCase(resultSet.getString("Complexity"))) {
+						pstmtForRfactorInsert.setString(3, "RELOAD");
+					} else {
+						pstmtForRfactorInsert.setString(3, "REFACTOR");
+					}
+					pstmtForRfactorInsert.execute();
+				}
+
+			}
+		}
+	}
+}
+   
+   
 
 /**
  * @return

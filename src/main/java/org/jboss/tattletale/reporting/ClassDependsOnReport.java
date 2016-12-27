@@ -135,11 +135,16 @@ public class ClassDependsOnReport extends CLSReport
              SortedSet<String> deps = entry.getValue();
              //System.out.println(clz);
              //TODO parse only give package
-             if(clz.contains("com.lmig") || clz.contains("com.lib")) {
-            	 //System.out.println(clz);
-             } else {
-            	continue;
+             boolean canWeProcessThisClass = false;
+             for(String packageName : Main.packagesToBeScanned) {
+            	 if(clz.contains(packageName)) {
+            		 canWeProcessThisClass = true;
+            	 }
              }
+             if(!canWeProcessThisClass) {
+            	 continue;
+             }
+             canWeProcessThisClass = false;
              if (odd)
              {
                 bw.write("  <tr class=\"rowodd\">" + Dump.newLine());

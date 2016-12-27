@@ -40,9 +40,6 @@
 	<classpathentry kind="lib" path="tools/docant/lib/core/jdom-1.0.jar"/>
 	<classpathentry kind="lib" path="tools/docant/lib/core/jhighlight-1.0.jar"/>
 	<classpathentry kind="lib" path="tools/docant/lib/core/plexus-utils-2.0.3.jar"/>
-	<classpathentry kind="lib" path="tools/docant/lib/core/saxon-6.5.3.jar"/>
-	<classpathentry kind="lib" path="tools/docant/lib/core/slf4j-api-1.5.8.jar"/>
-	<classpathentry kind="lib" path="tools/docant/lib/core/slf4j-simple-1.5.8.jar"/>
 	<classpathentry kind="lib" path="tools/docant/lib/core/xercesImpl-2.9.1.jar"/>
 	<classpathentry kind="lib" path="tools/docant/lib/core/xml-apis-1.3.04.jar"/>
 	<classpathentry kind="lib" path="tools/docant/lib/core/xml-apis-ext-1.3.04.jar"/>
@@ -53,10 +50,10 @@
 	<classpathentry kind="lib" path="tools/docant/lib/style/jbossorg-docbook-xslt-1.1.1.jar"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/Java JDK VM 1.8.0_u66 Windows"/>
 	<classpathentry kind="lib" path="tools/checkstyle/lib/maven-plugin-api-3.3.9.jar"/>
-	<classpathentry kind="lib" path="tools/checkstyle/lib/javassist.jar"/>
 	<classpathentry kind="lib" path="tools/docant/lib/db/mysql-connector-java-6.0.5.jar"/>
 	<classpathentry kind="lib" path="tools/docant/lib/db/commons-dbcp2-2.1.jar"/>
 	<classpathentry kind="lib" path="tools/docant/lib/db/commons-pool2-2.4.2.jar"/>
 	<classpathentry kind="lib" path="tools/docant/lib/commons-lang3-3.5.jar"/>
+	<classpathentry kind="lib" path="tools/checkstyle/lib/javassist-3.20.0-GA.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

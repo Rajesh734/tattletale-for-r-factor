@@ -26,8 +26,10 @@ public class TattleTaleDataSource {
 		if (dataSource == null) {
 			BasicDataSource ds = new BasicDataSource();
 			ds.setUrl("jdbc:mysql://localhost/R_FACTOR?autoReconnect=true&useSSL=false");
-			ds.setUsername("root");
-			ds.setPassword("password");
+			//ds.setUsername("root");
+			//ds.setPassword("MyNewPass");
+			ds.setUsername("tattletale");
+			ds.setPassword("tattletale2016");
 			ds.setInitialSize(10);
 			ds.setMinIdle(5);
 			ds.setMaxIdle(100);
